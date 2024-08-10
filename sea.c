@@ -9,10 +9,12 @@
 #include <sys/wait.h>
 #include <signal.h>
 #include <ctype.h>
+#include <termios.h>
 
 #define RL_BUFF_SIZE 1024
 #define TK_BUFF_SIZE 64
 #define TOK_DELIM " \t\r\n\a"
+#define HISTORY_SIZE 100
 
 #define RED   		"\033[0;31m"
 #define YELLOW 		"\033[0;33m"
@@ -52,6 +54,22 @@ char *get_hist_file_path();
 
 int (*builtin_funcs[])(char **) = {&sea_cd, &sea_echo, &sea_export, &sea_pwd, &sea_unset, &sea_help, &sea_exit, &sea_history, &sea_grep, &args_length };
 char *builtin_str[] = { "cd", "echo", "export", "pwd", "unset", "help", "exit" , "history", "grep", "sizeof" };
+
+char *history[HISTORY_SIZE];
+int history_count = 0;
+int history_index = 0;
+
+void add_to_history(char *line) {
+    if (history_count < HISTORY_SIZE) {
+        history[history_count++] = strdup(line);
+    } else {
+        free(history[0]);
+        for (int i = 1; i < HISTORY_SIZE; i++) {
+            history[i - 1] = history[i];
+        }
+        history[HISTORY_SIZE - 1] = strdup(line);
+    }
+}
 
 int builtin_funcs_count() {
     return sizeof(builtin_str) / sizeof(char *);
@@ -419,27 +437,67 @@ char *read_line() {
         exit(EXIT_FAILURE);
     }
 
-    while(1) {
+    struct termios oldt, newt;
+    tcgetattr(STDIN_FILENO, &oldt);
+    newt = oldt;
+    newt.c_lflag &= ~(ICANON | ECHO);
+    tcsetattr(STDIN_FILENO, TCSANOW, &newt);
+
+    while (1) {
         c = getchar();
-        if (c == EOF || c == '\n') {
+
+        if (c == '\n') {
             buffer[position] = '\0';
-            return buffer;
+            printf("\n");
+            add_to_history(buffer);
+            history_index = history_count;
+            break;
+        } else if (c == 127) { // Handle backspace
+            if (position > 0) {
+                buffer[--position] = '\0';
+                printf("\b \b");
+            }
+        } else if (c == 27) { // Handle arrow keys
+            getchar(); // Skip the '['
+            switch (getchar()) {
+                case 'A': // Up arrow
+                    if (history_index > 0) {
+                        history_index--;
+                        printf("\33[2K\r%s", history[history_index]);
+                        strcpy(buffer, history[history_index]);
+                        position = strlen(buffer);
+                    }
+                    break;
+                case 'B': // Down arrow
+                    if (history_index < history_count - 1) {
+                        history_index++;
+                        printf("\33[2K\r%s", history[history_index]);
+                        strcpy(buffer, history[history_index]);
+                        position = strlen(buffer);
+                    } else {
+                        history_index = history_count;
+                        printf("\33[2K\r");
+                        position = 0;
+                    }
+                    break;
+            }
         } else {
-            buffer[position] = c;
+            buffer[position++] = c;
+            printf("%c", c);
         }
-        position++;
 
         if (position >= buffsize) {
-            printf("Overflow buffer....allocating more memory\n");
             buffsize += RL_BUFF_SIZE;
             buffer = realloc(buffer, buffsize);
-
-            if(!buffer) {
-                fprintf(stderr, "%ssea: Allocation error%s\n", RED, RESET);
+            if (!buffer) {
+                fprintf(stderr, "sea: allocation error\n");
                 exit(EXIT_FAILURE);
             }
         }
     }
+
+    tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
+    return buffer;
 }
 
 void loop() {
@@ -474,6 +532,16 @@ void loop() {
 }
 
 int main(int argc, char **argv) {
+    for (int i = 0; i < HISTORY_SIZE; i++) {
+        history[i] = NULL;
+    }
     loop();
+    
+    for (int i = 0; i < HISTORY_SIZE; i++) {
+        if (history[i]) {
+            free(history[i]);
+        }
+    }
+
     return EXIT_SUCCESS;
 }
