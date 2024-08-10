@@ -17,12 +17,14 @@
 #define HISTORY_SIZE 100
 
 #define RED   		"\033[0;31m"
+#define WHITE       "\033[37m"
+#define LIGHT_BLUE  "\033[94m"
 #define YELLOW 		"\033[0;33m"
 #define CYAN 		"\033[0;36m"
 #define GREEN 		"\033[0;32m"
 #define BLUE 		"\033[0;34m"
 #define INVERT		"\033[0;7m"
-#define RESET  		"\e[0m" 
+#define RESET       "\033[0m"
 #define BOLD		"\e[1m"
 #define ITALICS		"\e[3m"
 
@@ -325,8 +327,7 @@ int sea_grep(char **args) {
 
 int sea_help(char **args) {
     if(args[0] != NULL && strcmp(args[0], "help") == 0) {
-        fprintf(stderr,"\n------\n" 
-                "\nsupported commands:\n- cd\n- echo\n- pwd\n- export\n- unset\n- exit\n- help\n- touch\n- cat\n");
+        fprintf(stderr, "\nsupported commands:\n- cd\n- echo\n- pwd\n- grep\n- export\n- unset\n- exit\n- help\n- touch\n- cat\n\n");
     }
     return 1;
 }
@@ -339,7 +340,7 @@ void get_dir(char *state) {
     char cwd[1024];
     if(getcwd(cwd, sizeof(cwd)) != NULL) {
         if(strcmp(state, "loop") == 0)
-            printf(RED "[ " RESET CYAN "%s" RESET RED " ] " RESET, cwd);
+            printf(RED "[ " RESET WHITE "%s" RESET RED " ] " RESET, cwd);
         else if(strcmp(state, "pwd") == 0)
             printf("%s\n", cwd);
     } else {
@@ -400,7 +401,7 @@ char **split_line(char *line) {
     char *token;
 
     if(!tokens) {
-        fprintf(stderr, "%ssea: Allocation error%s\n", RED, RESET);	
+        fprintf(stderr, "%ssea: allocation error%s\n", RED, RESET);	
         exit(EXIT_FAILURE);
     }
     token = strtok(line, TOK_DELIM);
@@ -413,7 +414,7 @@ char **split_line(char *line) {
             tokens = realloc(tokens, buffsize * sizeof(char *));
 
             if(!tokens) {
-                fprintf(stderr, "%ssea: Allocation error%s\n", RED, RESET);
+                fprintf(stderr, "%ssea: allocation error%s\n", RED, RESET);
                 exit(EXIT_FAILURE);
             }
         }
@@ -433,7 +434,7 @@ char *read_line() {
     int c;
 
     if(!buffer) {
-        fprintf(stderr, "%ssea: Allocation error%s\n", RED, RESET);
+        fprintf(stderr, "%ssea: allocation error%s\n", RED, RESET);
         exit(EXIT_FAILURE);
     }
 
@@ -452,15 +453,15 @@ char *read_line() {
             add_to_history(buffer);
             history_index = history_count;
             break;
-        } else if (c == 127) { // Handle backspace
+        } else if (c == 127) { 
             if (position > 0) {
                 buffer[--position] = '\0';
                 printf("\b \b");
             }
-        } else if (c == 27) { // Handle arrow keys
-            getchar(); // Skip the '['
+        } else if (c == 27) { 
+            getchar(); 
             switch (getchar()) {
-                case 'A': // Up arrow
+                case 'A': 
                     if (history_index > 0) {
                         history_index--;
                         printf("\33[2K\r%s", history[history_index]);
@@ -468,7 +469,7 @@ char *read_line() {
                         position = strlen(buffer);
                     }
                     break;
-                case 'B': // Down arrow
+                case 'B': 
                     if (history_index < history_count - 1) {
                         history_index++;
                         printf("\33[2K\r%s", history[history_index]);
@@ -507,7 +508,7 @@ void loop() {
 
     do {
         get_dir("loop");
-        printf(CYAN "> " RESET);
+        printf(LIGHT_BLUE" sea> " RESET);
         line = read_line();	
         flag = 0;
         i = 0;
