@@ -10,6 +10,8 @@
 #include <signal.h>
 #include <ctype.h>
 #include <termios.h>
+#include <readline/readline.h>
+#include <readline/history.h>
 
 #define RL_BUFF_SIZE 1024
 #define TK_BUFF_SIZE 64
@@ -72,6 +74,7 @@ void add_to_history(char *line) {
         history[HISTORY_SIZE - 1] = strdup(line);
     }
 }
+
 
 int builtin_funcs_count() {
     return sizeof(builtin_str) / sizeof(char *);
